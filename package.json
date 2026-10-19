@@ -1,0 +1,8 @@
+{
+  "name": "feed-the-faces",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-public.js",
+    "dev": "npx serve public -p 8080"
+  }
+}

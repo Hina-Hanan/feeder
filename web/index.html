@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Feed the Faces</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="screen-home" class="panel">
+      <h1>Feed the Faces</h1>
+      <p class="sub">Share one link — friends play in the browser. First to 5 wins.</p>
+      <button id="btn-create" class="primary">Create game &amp; get link</button>
+      <div id="create-result" class="hidden">
+        <p>Share this link (keep this tab open as host):</p>
+        <input id="share-link" readonly />
+        <button id="btn-copy">Copy link</button>
+        <button id="btn-enter-lobby" class="primary">Go to lobby</button>
+      </div>
+      <hr />
+      <p>Or join with a code from a friend:</p>
+      <div class="row">
+        <input id="join-code" placeholder="ROOM CODE" maxlength="5" />
+        <button id="btn-join">Join</button>
+      </div>
+    </section>
+
+    <section id="screen-lobby" class="panel hidden">
+      <h2>Lobby <span id="lobby-code"></span></h2>
+      <p id="lobby-status">Pick your name and favorite food.</p>
+      <label>Name <input id="player-name" value="Player" maxlength="16" /></label>
+      <div class="face-block">
+        <p class="face-label">Your face photo</p>
+        <div class="face-row">
+          <div id="face-preview-wrap">
+            <img id="face-preview" alt="Your face" class="hidden" />
+            <div id="face-placeholder" class="face-placeholder">?</div>
+          </div>
+          <div class="face-actions">
+            <label class="file-btn">
+              Upload image
+              <input type="file" id="face-file" accept="image/png,image/jpeg,image/webp" hidden />
+            </label>
+            <button type="button" id="face-clear">Default face</button>
+          </div>
+        </div>
+      </div>
+      <p class="face-label">Favorite food</p>
+      <div id="food-pick" class="foods"></div>
+      <button id="btn-ready" class="primary">Join room</button>
+      <ul id="player-list"></ul>
+      <button id="btn-start" class="primary hidden">Start game (host)</button>
+      <p id="lobby-hint" class="hint"></p>
+    </section>
+
+    <section id="screen-game" class="hidden">
+      <canvas id="game" width="1152" height="648"></canvas>
+      <p class="hint">WASD or arrow keys — walk onto your white spot to eat</p>
+    </section>
+  </div>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="/sim.js"></script>
+  <script src="/winfx.js"></script>
+  <script src="/game.js"></script>
+</body>
+</html>
