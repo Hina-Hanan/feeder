@@ -666,7 +666,10 @@ function startBotGame(name, fav) {
   }
   ["Mimi", "Bobo", "Zed"].forEach((botName, i) => {
     const p = hostSim.addPlayer(botName, others[i], null);
-    if (p) p.isBot = true;
+    if (p) {
+      p.isBot = true;
+      p.speed = 110 + Math.floor(Math.random() * 51);
+    }
   });
   hostSim.start();
   state = hostSim.publicState();

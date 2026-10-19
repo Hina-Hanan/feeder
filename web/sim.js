@@ -30,6 +30,7 @@ const Sim = (() => {
         count: 0, facing: 1, moving: false, burst: false, flash: 0,
         meal: null, meal_timer: 0, last_meal_pos: null, run_t: 0,
         color: COLORS[slot % COLORS.length],
+        speed: SPEED,
       };
       this.players.push(p);
       this.inputs[slot] = [0, 0];
@@ -100,8 +101,9 @@ const Sim = (() => {
         const len = Math.hypot(mx, my);
         p.moving = len > 0;
         if (len > 0) {
-          p.x += (mx / len) * SPEED * dt;
-          p.y += (my / len) * SPEED * dt;
+          const spd = p.speed ?? SPEED;
+          p.x += (mx / len) * spd * dt;
+          p.y += (my / len) * spd * dt;
           if (mx) p.facing = mx > 0 ? 1 : -1;
         }
         p.x = Math.max(30, Math.min(W - 30, p.x));
