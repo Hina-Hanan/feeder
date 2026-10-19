@@ -13,17 +13,13 @@
       <p class="sub">Share one link — friends play in the browser. First to 5 wins.</p>
       <button id="btn-create" class="primary">Create game &amp; get link</button>
       <div id="create-result" class="hidden">
-        <p>Share this link (keep this tab open as host):</p>
+        <p>Share this <strong>full link</strong> (must include &amp;h=…). Keep this tab open:</p>
         <input id="share-link" readonly />
         <button id="btn-copy">Copy link</button>
         <button id="btn-enter-lobby" class="primary">Go to lobby</button>
       </div>
       <hr />
-      <p>Or join with a code from a friend:</p>
-      <div class="row">
-        <input id="join-code" placeholder="ROOM CODE" maxlength="5" />
-        <button id="btn-join">Join</button>
-      </div>
+      <p class="hint">Friends: open the host's <strong>full link</strong> (with <code>h=</code> in the URL). Room code alone won't connect.</p>
     </section>
 
     <section id="screen-lobby" class="panel hidden">
@@ -48,7 +44,7 @@
       </div>
       <p class="face-label">Favorite food</p>
       <div id="food-pick" class="foods"></div>
-      <button id="btn-ready" class="primary">Join room</button>
+      <button id="btn-ready" class="primary">Join room (host: opens lobby)</button>
       <ul id="player-list"></ul>
       <button id="btn-start" class="primary hidden">Start game (host)</button>
       <p id="lobby-hint" class="hint"></p>

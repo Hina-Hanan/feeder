@@ -33,42 +33,76 @@ function roomFromUrl() {
   return (new URLSearchParams(location.search).get("room") || "").toUpperCase();
 }
 
+function hostSecretFor(code) {
+  return new URLSearchParams(location.search).get("h")
+    || sessionStorage.getItem(`hostSecret:${code}`);
+}
+
 function shareUrl(code) {
-  const u = new URL(location.href);
+  const u = new URL(location.origin + location.pathname);
   u.searchParams.set("room", code);
+  const secret = hostSecretFor(code);
+  if (secret) u.searchParams.set("h", secret);
   return u.href;
 }
 
-function randomCode() {
+function randomCode(len = 5) {
   const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let s = "";
-  for (let i = 0; i < 5; i++) s += c[Math.floor(Math.random() * c.length)];
+  for (let i = 0; i < len; i++) s += c[Math.floor(Math.random() * c.length)];
   return s;
 }
 
 function peerHostId(code) {
-  return `feedfaces-${code}`;
+  const secret = hostSecretFor(code);
+  if (!secret) return null;
+  return `feedfaces-${code}-${secret}`;
+}
+
+function isRoomHost(code) {
+  return sessionStorage.getItem(`hostOwner:${code}`) === "1";
+}
+
+function newHostSecret(code) {
+  const secret = randomCode(5) + randomCode(5);
+  sessionStorage.setItem(`hostOwner:${code}`, "1");
+  sessionStorage.setItem(`hostSecret:${code}`, secret);
+  return secret;
 }
 
 function createRoom() {
   room = randomCode();
-  sessionStorage.setItem(`host:${room}`, "1");
+  newHostSecret(room);
   $("share-link").value = shareUrl(room);
   $("create-result").classList.remove("hidden");
 }
 
 function enterLobby() {
   history.replaceState(null, "", shareUrl(room));
-  amHost = sessionStorage.getItem(`host:${room}`) === "1";
+  amHost = isRoomHost(room);
   setupLobby();
 }
 
-function joinWithCode() {
-  room = $("join-code").value.trim().toUpperCase();
-  if (!room) return;
-  history.replaceState(null, "", shareUrl(room));
-  amHost = sessionStorage.getItem(`host:${room}`) === "1";
-  setupLobby();
+const PEER_OPTS = {
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ],
+  },
+};
+
+function destroyPeer() {
+  if (peer) {
+    try { peer.destroy(); } catch (_) {}
+    peer = null;
+  }
+  hostConn = null;
+  peers.clear();
+}
+
+function setLobbyStatus(msg) {
+  $("lobby-status").textContent = msg;
 }
 
 function updateFacePreview() {
@@ -242,6 +276,17 @@ function syncRunnerFaces(runners) {
 function setupLobby() {
   show("screen-lobby");
   $("lobby-code").textContent = room;
+  const hasSecret = !!hostSecretFor(room);
+  if (amHost) {
+    setLobbyStatus("You are the host — click Join room to open the lobby for friends.");
+    $("lobby-hint").textContent = "Share Copy link, then Join room here before friends connect.";
+  } else if (!hasSecret) {
+    setLobbyStatus("Missing invite key — open the host's full link, not just the room code.");
+    $("lobby-hint").textContent = "URL must include ?room=…&h=…";
+  } else {
+    setLobbyStatus("Pick your name and food, then Join room.");
+    $("lobby-hint").textContent = "Host must click Join room first and keep their tab open.";
+  }
   updateFacePreview();
   const pick = $("food-pick");
   pick.innerHTML = "";
@@ -291,8 +336,8 @@ function onJoined(slot, players) {
     : "In lobby — waiting for host to start…";
   $("btn-start").classList.toggle("hidden", !amHost);
   $("lobby-hint").textContent = amHost
-    ? "Keep this tab open. When friends joined, press Start game."
-    : "Host will start the match.";
+    ? "1) Copy link  2) Friends open it  3) They click Join room  4) You press Start"
+    : "Host must click Join room first, then you can connect.";
   renderPlayerList(players);
 }
 
@@ -314,61 +359,124 @@ function handleHostMessage(conn, raw) {
   }
 }
 
-function startHostPeer(name, fav) {
+function startHostPeer(name, fav, retry = 0) {
+  destroyPeer();
   hostSim = new Sim.Room();
   const me = hostSim.addPlayer(name, fav, faceDataUrl);
   mySlot = me.slot;
   amHost = true;
 
-  peer = new Peer(peerHostId(room));
+  let id = peerHostId(room);
+  if (!id) {
+    newHostSecret(room);
+    history.replaceState(null, "", shareUrl(room));
+    $("share-link").value = shareUrl(room);
+    id = peerHostId(room);
+  }
+
+  setLobbyStatus("Opening lobby for friends…");
+  peer = new Peer(id, PEER_OPTS);
   peer.on("open", () => {
+    setLobbyStatus("Lobby is open — friends can join with your copied link.");
+    $("share-link").value = shareUrl(room);
     onJoined(mySlot, hostSim.playerList());
   });
   peer.on("connection", conn => {
-    conn.on("open", () => {
-      conn.on("data", data => handleHostMessage(conn, data));
-    });
+    conn.on("data", data => handleHostMessage(conn, data));
   });
   peer.on("error", err => {
     console.error(err);
-    alert("Could not start host (try another room code or refresh).");
+    if (err.type === "unavailable-id" && retry < 3) {
+      newHostSecret(room);
+      history.replaceState(null, "", shareUrl(room));
+      $("share-link").value = shareUrl(room);
+      startHostPeer(name, fav, retry + 1);
+      return;
+    }
+    setLobbyStatus("Could not open lobby — refresh and try Create game again.");
+  });
+}
+
+function attachGuestHandlers(name, fav, conn) {
+  conn.on("data", data => {
+    let msg;
+    try { msg = JSON.parse(data); } catch (_) { return; }
+    if (msg.type === "joined") onJoined(msg.slot, msg.players);
+    if (msg.type === "lobby") renderPlayerList(msg.players);
+    if (msg.type === "start") {
+      state = msg.state;
+      syncRunnerFaces(state.runners);
+      WinFX.reset();
+      loopT = 0;
+      show("screen-game");
+      requestAnimationFrame(loop);
+    }
+    if (msg.type === "state") {
+      state = msg.state;
+      syncRunnerFaces(state.runners);
+    }
+  });
+  conn.on("open", () => {
+    conn.send(JSON.stringify({ type: "join", name, fav, face: faceDataUrl }));
+  });
+  conn.on("close", () => {
+    if (!$("screen-game").classList.contains("hidden")) {
+      alert("Disconnected from host.");
+      show("screen-home");
+    }
   });
 }
 
 function startGuestPeer(name, fav) {
-  peer = new Peer();
+  if (!hostSecretFor(room)) {
+    setLobbyStatus("Use the host's full invite link (Copy link), not just the room code.");
+    alert("Open the full URL from the host. It should include ?room=…&h=…");
+    return;
+  }
+  destroyPeer();
+  setLobbyStatus("Connecting to host…");
+
+  peer = new Peer(undefined, PEER_OPTS);
+  let attempt = 0;
+  let poll = null;
+  let pendingConn = null;
+
+  function dial() {
+    if (mySlot != null || !peer || peer.destroyed) return;
+    const targetId = peerHostId(room);
+    if (!targetId) return;
+    if (pendingConn && !pendingConn.open) return;
+    if (hostConn?.open) return;
+    if (pendingConn) {
+      try { pendingConn.close(); } catch (_) {}
+    }
+    pendingConn = peer.connect(targetId, { reliable: true });
+    hostConn = pendingConn;
+    attachGuestHandlers(name, fav, pendingConn);
+  }
+
   peer.on("open", () => {
-    hostConn = peer.connect(peerHostId(room));
-    hostConn.on("open", () => {
-      hostConn.send(JSON.stringify({ type: "join", name, fav, face: faceDataUrl }));
-    });
-    hostConn.on("data", data => {
-      let msg;
-      try { msg = JSON.parse(data); } catch (_) { return; }
-      if (msg.type === "joined") onJoined(msg.slot, msg.players);
-      if (msg.type === "lobby") renderPlayerList(msg.players);
-      if (msg.type === "start") {
-        state = msg.state;
-        syncRunnerFaces(state.runners);
-        WinFX.reset();
-        loopT = 0;
-        show("screen-game");
-        requestAnimationFrame(loop);
+    dial();
+    poll = setInterval(() => {
+      if (mySlot != null) {
+        clearInterval(poll);
+        return;
       }
-      if (msg.type === "state") {
-        state = msg.state;
-        syncRunnerFaces(state.runners);
+      if (hostConn?.open) return;
+      attempt += 1;
+      setLobbyStatus(`Waiting for host lobby… (${attempt}) — host must click Join room`);
+      if (attempt >= 30) {
+        clearInterval(poll);
+        setLobbyStatus("No host found. Ask them to Join room and keep this tab open.");
+        return;
       }
-    });
-    hostConn.on("close", () => {
-      if (!$("screen-game").classList.contains("hidden")) {
-        alert("Disconnected from host.");
-        show("screen-home");
-      }
-    });
+      pendingConn = null;
+      dial();
+    }, 2500);
   });
-  peer.on("error", () => {
-    alert("Could not join. Is the host in the lobby with this tab still open?");
+  peer.on("error", (err) => {
+    console.error(err);
+    setLobbyStatus("Connection error — host should refresh and send a new Copy link.");
   });
 }
 
@@ -430,7 +538,6 @@ $("btn-copy").onclick = () => {
   navigator.clipboard?.writeText($("share-link").value);
 };
 $("btn-enter-lobby").onclick = enterLobby;
-$("btn-join").onclick = joinWithCode;
 $("btn-ready").onclick = joinRoom;
 $("btn-start").onclick = startGame;
 $("face-file").onchange = (e) => {
@@ -584,9 +691,9 @@ function loop(t) {
 
 room = roomFromUrl();
 if (room) {
-  amHost = sessionStorage.getItem(`host:${room}`) === "1";
-  show("screen-lobby");
-  $("lobby-code").textContent = room;
+  const urlSecret = new URLSearchParams(location.search).get("h");
+  if (urlSecret) sessionStorage.setItem(`hostSecret:${room}`, urlSecret);
+  amHost = isRoomHost(room);
   setupLobby();
 } else {
   show("screen-home");
