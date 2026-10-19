@@ -2,7 +2,12 @@
 const Sim = (() => {
   const W = 1152, H = 648;
   const TARGET = 5, BASE_HEAD = 70, GROW = 22, MIN_HEAD = 40;
-  const SPEED = 280, RESPAWN_MIN_DIST = 120, FOOD_SEP = 100;
+  const SPEED = 280;
+  const BOT_SPEED_MIN = 36;
+  const BOT_SPEED_MAX = 52;
+  const BOT_THINK_MIN = 0.28;
+  const BOT_THINK_MAX = 0.45;
+  const RESPAWN_MIN_DIST = 120, FOOD_SEP = 100;
   const FEET_Y_MIN = 280, FEET_Y_MAX = H - 55, EAT_FEET_RADIUS = 58;
   const FOOD_RESPAWN_DELAY = 0.35;
   const COLORS = ["#f0c896", "#f0aa78", "#a0c8f0", "#c8f0a0"];
@@ -31,6 +36,7 @@ const Sim = (() => {
         meal: null, meal_timer: 0, last_meal_pos: null, run_t: 0,
         color: COLORS[slot % COLORS.length],
         speed: SPEED,
+        botRetarget: 0, botPause: 0, botMx: 0, botMy: 0,
       };
       this.players.push(p);
       this.inputs[slot] = [0, 0];
@@ -86,15 +92,32 @@ const Sim = (() => {
         let mx = 0;
         let my = 0;
         if (p.isBot) {
-          if (p.meal) {
-            const dx = p.meal.pos[0] - p.x;
-            const dy = p.meal.pos[1] - p.y;
-            const d = Math.hypot(dx, dy);
-            if (d > EAT_FEET_RADIUS && d > 1) {
-              mx = dx / d;
-              my = dy / d;
+          p.botRetarget -= dt;
+          p.botPause = Math.max(0, (p.botPause || 0) - dt);
+          if (p.botRetarget <= 0 && p.botPause <= 0) {
+            p.botRetarget = BOT_THINK_MIN + Math.random() * (BOT_THINK_MAX - BOT_THINK_MIN);
+            if (Math.random() < 0.18) {
+              p.botPause = 0.2 + Math.random() * 0.35;
+              p.botMx = 0;
+              p.botMy = 0;
+            } else if (p.meal) {
+              const dx = p.meal.pos[0] - p.x + (Math.random() - 0.5) * 60;
+              const dy = p.meal.pos[1] - p.y + (Math.random() - 0.5) * 60;
+              const d = Math.hypot(dx, dy);
+              if (d > EAT_FEET_RADIUS && d > 1) {
+                p.botMx = dx / d;
+                p.botMy = dy / d;
+              } else {
+                p.botMx = 0;
+                p.botMy = 0;
+              }
+            } else {
+              p.botMx = 0;
+              p.botMy = 0;
             }
           }
+          mx = p.botMx || 0;
+          my = p.botMy || 0;
         } else {
           [mx, my] = this.inputs[p.slot] || [0, 0];
         }
@@ -147,5 +170,9 @@ const Sim = (() => {
     }
   }
 
-  return { Room, W, H };
+  function rollBotSpeed() {
+    return BOT_SPEED_MIN + Math.floor(Math.random() * (BOT_SPEED_MAX - BOT_SPEED_MIN + 1));
+  }
+
+  return { Room, W, H, rollBotSpeed };
 })();

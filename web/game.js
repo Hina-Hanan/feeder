@@ -668,7 +668,7 @@ function startBotGame(name, fav) {
     const p = hostSim.addPlayer(botName, others[i], null);
     if (p) {
       p.isBot = true;
-      p.speed = 110 + Math.floor(Math.random() * 51);
+      p.speed = Sim.rollBotSpeed();
     }
   });
   hostSim.start();
