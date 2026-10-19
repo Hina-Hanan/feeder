@@ -18,6 +18,8 @@ let peer = null;
 let hostSim = null;
 const peers = new Map(); // conn -> slot
 let hostConn = null;
+let socket = null;
+let netMode = null; // "ws" | "peer"
 let tickTimer = null;
 let faceDataUrl = null;
 const faceCache = new Map(); // slot -> HTMLImageElement
@@ -38,12 +40,40 @@ function hostSecretFor(code) {
     || sessionStorage.getItem(`hostSecret:${code}`);
 }
 
+function useGameServer() {
+  return !!(String(window.FTF_WS_URL || "").trim() || window.FTF_WS_SAME_ORIGIN);
+}
+
 function shareUrl(code) {
   const u = new URL(location.origin + location.pathname);
   u.searchParams.set("room", code);
-  const secret = hostSecretFor(code);
-  if (secret) u.searchParams.set("h", secret);
+  if (!useGameServer()) {
+    const secret = hostSecretFor(code);
+    if (secret) u.searchParams.set("h", secret);
+  }
   return u.href;
+}
+
+function gameServerWsUrl(code) {
+  let raw = String(window.FTF_WS_URL || "").trim();
+  if (!raw && window.FTF_WS_SAME_ORIGIN) {
+    const u = new URL(location.href);
+    u.pathname = "/ws";
+    u.search = "";
+    raw = `${u.protocol === "https:" ? "https:" : "http:"}//${u.host}/ws`;
+  }
+  if (!raw) return null;
+  try {
+    const u = new URL(raw, location.href);
+    if (!u.pathname.endsWith("/ws")) {
+      u.pathname = `${u.pathname.replace(/\/$/, "")}/ws`;
+    }
+    u.searchParams.set("room", code);
+    u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+    return u.toString();
+  } catch (_) {
+    return null;
+  }
 }
 
 function randomCode(len = 5) {
@@ -84,21 +114,48 @@ function enterLobby() {
 }
 
 const PEER_OPTS = {
+  host: "0.peerjs.com",
+  port: 443,
+  path: "/",
+  secure: true,
   config: {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
     ],
   },
 };
 
-function destroyPeer() {
+function destroyNet() {
+  if (socket) {
+    try { socket.close(); } catch (_) {}
+    socket = null;
+  }
+  netMode = null;
   if (peer) {
     try { peer.destroy(); } catch (_) {}
     peer = null;
   }
   hostConn = null;
   peers.clear();
+  if (tickTimer) {
+    clearInterval(tickTimer);
+    tickTimer = null;
+  }
+}
+
+function destroyPeer() {
+  destroyNet();
 }
 
 function setLobbyStatus(msg) {
@@ -280,7 +337,7 @@ function setupLobby() {
   if (amHost) {
     setLobbyStatus("You are the host — click Join room to open the lobby for friends.");
     $("lobby-hint").textContent = "Share Copy link, then Join room here before friends connect.";
-  } else if (!hasSecret) {
+  } else if (!useGameServer() && !hasSecret) {
     setLobbyStatus("Missing invite key — open the host's full link, not just the room code.");
     $("lobby-hint").textContent = "URL must include ?room=…&h=…";
   } else {
@@ -311,11 +368,78 @@ function setupLobby() {
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
+  if (netMode === "ws" && socket?.readyState === WebSocket.OPEN) {
+    try { socket.send(data); } catch (_) {}
+    return;
+  }
   if (amHost) {
     peers.forEach(conn => { try { conn.send(data); } catch (_) {} });
   } else if (hostConn?.open) {
     try { hostConn.send(data); } catch (_) {}
   }
+}
+
+function handleServerMessage(msg) {
+  if (msg.type === "error") {
+    setLobbyStatus(msg.message || "Server error");
+    alert(msg.message || "Could not join this room.");
+    return;
+  }
+  if (msg.type === "joined") {
+    mySlot = msg.slot;
+    amHost = !!msg.is_host;
+    onJoined(msg.slot, msg.players);
+  }
+  if (msg.type === "lobby") renderPlayerList(msg.players);
+  if (msg.type === "start") {
+    state = msg.state;
+    syncRunnerFaces(state.runners);
+    WinFX.reset();
+    loopT = 0;
+    show("screen-game");
+    requestAnimationFrame(loop);
+  }
+  if (msg.type === "state") {
+    state = msg.state;
+    syncRunnerFaces(state.runners);
+  }
+}
+
+function startWebSocketJoin(name, fav) {
+  const url = gameServerWsUrl(room);
+  if (!url) {
+    setLobbyStatus("Game server URL is not configured.");
+    return false;
+  }
+  destroyNet();
+  netMode = "ws";
+  hostSim = null;
+  setLobbyStatus("Connecting to game server…");
+  socket = new WebSocket(url);
+  socket.onopen = () => {
+    setLobbyStatus("Joining lobby…");
+    socket.send(JSON.stringify({
+      type: "join",
+      name,
+      fav,
+      face: faceDataUrl || null,
+    }));
+  };
+  socket.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch (_) { return; }
+    handleServerMessage(msg);
+  };
+  socket.onerror = () => {
+    setLobbyStatus("Cannot reach game server. Try again in a moment.");
+  };
+  socket.onclose = () => {
+    if (!$("screen-game").classList.contains("hidden") && netMode === "ws") {
+      alert("Disconnected from server.");
+      show("screen-home");
+    }
+  };
+  return true;
 }
 
 function renderPlayerList(players) {
@@ -353,6 +477,11 @@ function handleHostMessage(conn, raw) {
       players: hostSim.playerList(),
     }));
     broadcast({ type: "lobby", players: hostSim.playerList() });
+  }
+  if (msg.type === "face" && hostSim && !hostSim.started) {
+    const slot = peers.get(conn);
+    const pl = hostSim.players.find(x => x.slot === slot);
+    if (pl && msg.face) pl.face = msg.face;
   }
   if (msg.type === "input" && hostSim?.started && msg.slot != null) {
     hostSim.inputs[msg.slot] = [msg.mx, msg.my];
@@ -417,7 +546,12 @@ function attachGuestHandlers(name, fav, conn) {
     }
   });
   conn.on("open", () => {
-    conn.send(JSON.stringify({ type: "join", name, fav, face: faceDataUrl }));
+    conn.send(JSON.stringify({ type: "join", name, fav, face: null }));
+    if (faceDataUrl) {
+      setTimeout(() => {
+        try { conn.send(JSON.stringify({ type: "face", face: faceDataUrl })); } catch (_) {}
+      }, 200);
+    }
   });
   conn.on("close", () => {
     if (!$("screen-game").classList.contains("hidden")) {
@@ -482,11 +616,20 @@ function startGuestPeer(name, fav) {
 
 function joinRoom() {
   const name = $("player-name").value.trim() || "Player";
+  if (useGameServer()) {
+    startWebSocketJoin(name, selectedFav);
+    return;
+  }
   if (amHost) startHostPeer(name, selectedFav);
   else startGuestPeer(name, selectedFav);
 }
 
 function startGame() {
+  if (netMode === "ws") {
+    if (!amHost || socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: "start" }));
+    return;
+  }
   if (!amHost || !hostSim) return;
   if (!hostSim.start()) return;
   state = hostSim.publicState();
@@ -509,6 +652,10 @@ function sendInput() {
   if (!state?.started) return;
   const mx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   const my = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+  if (netMode === "ws" && socket?.readyState === WebSocket.OPEN && mySlot != null) {
+    socket.send(JSON.stringify({ type: "input", mx, my }));
+    return;
+  }
   if (amHost && hostSim && mySlot != null) {
     hostSim.inputs[mySlot] = [mx, my];
   } else if (hostConn?.open && mySlot != null) {

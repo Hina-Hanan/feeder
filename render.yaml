@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: feed-the-faces
+    runtime: python
+    buildCommand: pip install -r requirements-web.txt && npm install && npm run build
+    startCommand: python web_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: FTF_WS_SAME_ORIGIN
+        value: "1"

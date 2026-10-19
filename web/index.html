@@ -13,13 +13,13 @@
       <p class="sub">Share one link — friends play in the browser. First to 5 wins.</p>
       <button id="btn-create" class="primary">Create game &amp; get link</button>
       <div id="create-result" class="hidden">
-        <p>Share this <strong>full link</strong> (must include &amp;h=…). Keep this tab open:</p>
+        <p>Share this link. Keep this tab open as host:</p>
         <input id="share-link" readonly />
         <button id="btn-copy">Copy link</button>
         <button id="btn-enter-lobby" class="primary">Go to lobby</button>
       </div>
       <hr />
-      <p class="hint">Friends: open the host's <strong>full link</strong> (with <code>h=</code> in the URL). Room code alone won't connect.</p>
+      <p class="hint">Friends open the same link you share. Host: Join room first, then send the link.</p>
     </section>
 
     <section id="screen-lobby" class="panel hidden">
@@ -55,6 +55,7 @@
       <p class="hint">WASD or arrow keys — walk onto your white spot to eat</p>
     </section>
   </div>
+  <script src="/ws-config.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="/sim.js"></script>
   <script src="/winfx.js"></script>

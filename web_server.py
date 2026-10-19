@@ -1,7 +1,8 @@
-"""Browser version: open http://localhost:8080 and share the room link."""
+"""Browser multiplayer server (WebSocket). Serves static files from public/ if present."""
 import asyncio
 import json
 import math
+import os
 import random
 import string
 from pathlib import Path
@@ -9,7 +10,7 @@ from pathlib import Path
 from aiohttp import web
 
 ROOT = Path(__file__).resolve().parent
-WEB = ROOT / "web"
+WEB = ROOT / "public" if (ROOT / "public" / "index.html").is_file() else ROOT / "web"
 
 W, H = 1152, 648
 FOODS = ["apple", "banana", "strawberry", "carrot", "tomato", "eggplant", "avocado", "kiwi"]
@@ -52,16 +53,19 @@ class GameRoom:
     def player_list(self):
         return [{"slot": p["slot"], "name": p["name"], "fav": p["fav"]} for p in self.players]
 
-    def add_player(self, ws, name: str, fav: str) -> dict | None:
+    def add_player(self, ws, name: str, fav: str, face: str | None = None) -> dict | None:
         if self.started or len(self.players) >= MAX_PLAYERS:
             return None
         if fav not in FOODS:
             fav = random.choice(FOODS)
+        if face and len(face) > 600_000:
+            face = None
         slot = len(self.players)
         p = {
             "slot": slot,
             "name": name[:16] or f"Player{slot + 1}",
             "fav": fav,
+            "face": face,
             "x": random.randint(100, W - 100),
             "y": random.randint(250, H - 40),
             "count": 0,
@@ -191,6 +195,7 @@ class GameRoom:
                 "head_size": self.head_size(p),
                 "color": p["color"],
                 "meal": p["meal"],
+                "face": p.get("face"),
             } for p in self.players],
         }
 
@@ -230,12 +235,15 @@ class GameRoom:
 async def ws_handler(request: web.Request):
     ws = web.WebSocketResponse(heartbeat=20)
     await ws.prepare(request)
-    room_code = request.query.get("room", "").upper()
-    room = rooms.get(room_code)
-    if not room:
-        await ws.send_json({"type": "error", "message": "Room not found. Create a new game from the home page."})
+    room_code = request.query.get("room", "").upper().strip()
+    if not room_code:
+        await ws.send_json({"type": "error", "message": "Missing room code."})
         await ws.close()
         return ws
+    room = rooms.get(room_code)
+    if not room:
+        rooms[room_code] = GameRoom(room_code)
+        room = rooms[room_code]
 
     player = None
     try:
@@ -245,7 +253,12 @@ async def ws_handler(request: web.Request):
             data = json.loads(msg.data)
             t = data.get("type")
             if t == "join":
-                player = room.add_player(ws, data.get("name", "Player"), data.get("fav", "apple"))
+                player = room.add_player(
+                    ws,
+                    data.get("name", "Player"),
+                    data.get("fav", "apple"),
+                    data.get("face"),
+                )
                 if not player:
                     await ws.send_json({"type": "error", "message": "Room full or game already started."})
                     await ws.close()
@@ -296,19 +309,36 @@ async def index(_request: web.Request):
     return web.FileResponse(WEB / "index.html")
 
 
+async def health(_request: web.Request):
+    return web.json_response({"ok": True, "rooms": len(rooms)})
+
+
 def main():
     app = web.Application()
     app.router.add_post("/api/create-room", create_room)
     app.router.add_get("/ws", ws_handler)
+    app.router.add_get("/health", health)
     app.router.add_get("/", index)
-    app.router.add_static("/web/", WEB)
-    assets = ROOT / "assets"
+    def static_file(file_path: Path):
+        async def handler(_request: web.Request):
+            return web.FileResponse(file_path)
+
+        return handler
+
+    for name in ("game.js", "sim.js", "style.css", "winfx.js", "ws-config.js"):
+        p = WEB / name
+        if p.is_file():
+            app.router.add_get(f"/{name}", static_file(p))
+    assets = WEB / "assets"
+    if not assets.is_dir():
+        assets = ROOT / "assets"
     if assets.is_dir():
         app.router.add_static("/assets/", assets)
+    port = int(os.environ.get("PORT", "8080"))
     print("Feed the Faces — browser edition")
-    print("Open:  http://localhost:8080")
-    print("Share: http://YOUR_PUBLIC_IP:8080/?room=CODE  (after Create game)")
-    web.run_app(app, host="0.0.0.0", port=8080)
+    print(f"Open:  http://localhost:{port}")
+    print("Share: ?room=CODE  (Create game on home page, then Join room)")
+    web.run_app(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
