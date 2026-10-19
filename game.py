@@ -121,7 +121,7 @@ class Runner:
         self.key = slot
         self.pos = pygame.Vector2(random.randint(100, W - 100), random.randint(250, H - 40))  # feet
         self.count = 0
-        self.speed = 280 if is_player else random.randint(36, 52)
+        self.speed = 280 if is_player else random.randint(78, 102)
         self.facing = 1
         self.run_t = 0.0
         self.moving = False

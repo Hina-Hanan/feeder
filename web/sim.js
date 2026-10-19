@@ -3,10 +3,10 @@ const Sim = (() => {
   const W = 1152, H = 648;
   const TARGET = 5, BASE_HEAD = 70, GROW = 22, MIN_HEAD = 40;
   const SPEED = 280;
-  const BOT_SPEED_MIN = 36;
-  const BOT_SPEED_MAX = 52;
-  const BOT_THINK_MIN = 0.28;
-  const BOT_THINK_MAX = 0.45;
+  const BOT_SPEED_MIN = 78;
+  const BOT_SPEED_MAX = 102;
+  const BOT_THINK_MIN = 0.16;
+  const BOT_THINK_MAX = 0.28;
   const RESPAWN_MIN_DIST = 120, FOOD_SEP = 100;
   const FEET_Y_MIN = 280, FEET_Y_MAX = H - 55, EAT_FEET_RADIUS = 58;
   const FOOD_RESPAWN_DELAY = 0.35;
@@ -96,13 +96,13 @@ const Sim = (() => {
           p.botPause = Math.max(0, (p.botPause || 0) - dt);
           if (p.botRetarget <= 0 && p.botPause <= 0) {
             p.botRetarget = BOT_THINK_MIN + Math.random() * (BOT_THINK_MAX - BOT_THINK_MIN);
-            if (Math.random() < 0.18) {
-              p.botPause = 0.2 + Math.random() * 0.35;
+            if (Math.random() < 0.1) {
+              p.botPause = 0.12 + Math.random() * 0.18;
               p.botMx = 0;
               p.botMy = 0;
             } else if (p.meal) {
-              const dx = p.meal.pos[0] - p.x + (Math.random() - 0.5) * 60;
-              const dy = p.meal.pos[1] - p.y + (Math.random() - 0.5) * 60;
+              const dx = p.meal.pos[0] - p.x + (Math.random() - 0.5) * 42;
+              const dy = p.meal.pos[1] - p.y + (Math.random() - 0.5) * 42;
               const d = Math.hypot(dx, dy);
               if (d > EAT_FEET_RADIUS && d > 1) {
                 p.botMx = dx / d;
