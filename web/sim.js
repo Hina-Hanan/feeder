@@ -24,6 +24,7 @@ const Sim = (() => {
       const slot = this.players.length;
       const p = {
         slot, name: (name || `Player${slot + 1}`).slice(0, 16), fav, face,
+        isBot: false,
         x: 100 + Math.random() * (W - 200),
         y: 250 + Math.random() * (H - 290),
         count: 0, facing: 1, moving: false, burst: false, flash: 0,
@@ -81,7 +82,21 @@ const Sim = (() => {
       this.ensureMeals();
       this.players.forEach(p => {
         if (p.burst) return;
-        const [mx, my] = this.inputs[p.slot] || [0, 0];
+        let mx = 0;
+        let my = 0;
+        if (p.isBot) {
+          if (p.meal) {
+            const dx = p.meal.pos[0] - p.x;
+            const dy = p.meal.pos[1] - p.y;
+            const d = Math.hypot(dx, dy);
+            if (d > EAT_FEET_RADIUS && d > 1) {
+              mx = dx / d;
+              my = dy / d;
+            }
+          }
+        } else {
+          [mx, my] = this.inputs[p.slot] || [0, 0];
+        }
         const len = Math.hypot(mx, my);
         p.moving = len > 0;
         if (len > 0) {

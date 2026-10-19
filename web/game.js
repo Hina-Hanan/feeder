@@ -6,6 +6,7 @@ const FOOD_COLORS = {
 };
 
 let room = "";
+let botMode = false;
 let mySlot = null;
 let amHost = false;
 let selectedFav = "apple";
@@ -108,9 +109,28 @@ function createRoom() {
 }
 
 function enterLobby() {
+  botMode = false;
   history.replaceState(null, "", shareUrl(room));
   amHost = isRoomHost(room);
   setupLobby();
+}
+
+function enterBotLobby() {
+  botMode = true;
+  room = "";
+  mySlot = null;
+  history.replaceState(null, "", location.pathname);
+  setupLobby();
+}
+
+function updateReadyButton() {
+  const btn = $("btn-ready");
+  if (botMode) {
+    btn.textContent = "Start game";
+    btn.classList.remove("hidden");
+  } else {
+    btn.textContent = amHost ? "Join room (opens lobby)" : "Join room";
+  }
 }
 
 const PEER_OPTS = {
@@ -332,6 +352,20 @@ function syncRunnerFaces(runners) {
 
 function setupLobby() {
   show("screen-lobby");
+  $("btn-ready").classList.remove("hidden");
+  $("btn-start").classList.add("hidden");
+  $("player-list").innerHTML = "";
+  if (botMode) {
+    $("lobby-title").textContent = "Play vs Bots";
+    $("lobby-code").textContent = "";
+    setLobbyStatus("Pick your name, face, and favorite food.");
+    $("lobby-hint").textContent = "You vs Mimi, Bobo, and Zed — race to 5.";
+    updateReadyButton();
+    updateFacePreview();
+    buildFoodPick();
+    return;
+  }
+  $("lobby-title").textContent = "Lobby";
   $("lobby-code").textContent = room;
   const hasSecret = !!hostSecretFor(room);
   if (amHost) {
@@ -344,7 +378,12 @@ function setupLobby() {
     setLobbyStatus("Pick your name and food, then Join room.");
     $("lobby-hint").textContent = "Host must click Join room first and keep their tab open.";
   }
+  updateReadyButton();
   updateFacePreview();
+  buildFoodPick();
+}
+
+function buildFoodPick() {
   const pick = $("food-pick");
   pick.innerHTML = "";
   FOODS.forEach(f => {
@@ -614,8 +653,43 @@ function startGuestPeer(name, fav) {
   });
 }
 
+function startBotGame(name, fav) {
+  destroyNet();
+  hostSim = new Sim.Room();
+  mySlot = 0;
+  netMode = "local";
+  hostSim.addPlayer(name, fav, faceDataUrl);
+  const others = FOODS.filter(f => f !== fav);
+  for (let i = others.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [others[i], others[j]] = [others[j], others[i]];
+  }
+  ["Mimi", "Bobo", "Zed"].forEach((botName, i) => {
+    const p = hostSim.addPlayer(botName, others[i], null);
+    if (p) p.isBot = true;
+  });
+  hostSim.start();
+  state = hostSim.publicState();
+  syncRunnerFaces(state.runners);
+  WinFX.reset();
+  loopT = 0;
+  $("btn-ready").classList.add("hidden");
+  show("screen-game");
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(() => {
+    hostSim.step(1 / 30);
+    state = hostSim.publicState();
+    syncRunnerFaces(state.runners);
+  }, 1000 / 30);
+  requestAnimationFrame(loop);
+}
+
 function joinRoom() {
   const name = $("player-name").value.trim() || "Player";
+  if (botMode) {
+    startBotGame(name, selectedFav);
+    return;
+  }
   if (useGameServer()) {
     startWebSocketJoin(name, selectedFav);
     return;
@@ -652,6 +726,10 @@ function sendInput() {
   if (!state?.started) return;
   const mx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   const my = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+  if (netMode === "local" && hostSim && mySlot != null) {
+    hostSim.inputs[mySlot] = [mx, my];
+    return;
+  }
   if (netMode === "ws" && socket?.readyState === WebSocket.OPEN && mySlot != null) {
     socket.send(JSON.stringify({ type: "input", mx, my }));
     return;
@@ -679,6 +757,7 @@ document.addEventListener("keyup", (e) => {
 });
 setInterval(sendInput, 50);
 
+$("btn-play-bots").onclick = enterBotLobby;
 $("btn-create").onclick = createRoom;
 $("btn-copy").onclick = () => {
   $("share-link").select();
@@ -838,6 +917,7 @@ function loop(t) {
 
 room = roomFromUrl();
 if (room) {
+  botMode = false;
   const urlSecret = new URLSearchParams(location.search).get("h");
   if (urlSecret) sessionStorage.setItem(`hostSecret:${room}`, urlSecret);
   amHost = isRoomHost(room);

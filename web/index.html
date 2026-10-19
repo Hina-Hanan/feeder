@@ -10,20 +10,23 @@
   <div id="app">
     <section id="screen-home" class="panel">
       <h1>Feed the Faces</h1>
-      <p class="sub">Share one link — friends play in the browser. First to 5 wins.</p>
-      <button id="btn-create" class="primary">Create game &amp; get link</button>
-      <div id="create-result" class="hidden">
-        <p>Share this link. Keep this tab open as host:</p>
-        <input id="share-link" readonly />
-        <button id="btn-copy">Copy link</button>
-        <button id="btn-enter-lobby" class="primary">Go to lobby</button>
-      </div>
-      <hr />
-      <p class="hint">Friends open the same link you share. Host: Join room first, then send the link.</p>
+      <p class="sub">Run to your favorite food. First to 5 wins.</p>
+      <button id="btn-play-bots" class="primary">Play with Bots</button>
+      <details class="multi-block">
+        <summary>Play with friends online</summary>
+        <p class="hint">Needs a game server (not on Vercel alone). See MULTIPLAYER.md in the repo.</p>
+        <button type="button" id="btn-create">Create game &amp; get link</button>
+        <div id="create-result" class="hidden">
+          <p>Share this link. Keep this tab open as host:</p>
+          <input id="share-link" readonly />
+          <button type="button" id="btn-copy">Copy link</button>
+          <button type="button" id="btn-enter-lobby" class="primary">Go to lobby</button>
+        </div>
+      </details>
     </section>
 
     <section id="screen-lobby" class="panel hidden">
-      <h2>Lobby <span id="lobby-code"></span></h2>
+      <h2><span id="lobby-title">Lobby</span> <span id="lobby-code"></span></h2>
       <p id="lobby-status">Pick your name and favorite food.</p>
       <label>Name <input id="player-name" value="Player" maxlength="16" /></label>
       <div class="face-block">
@@ -44,7 +47,7 @@
       </div>
       <p class="face-label">Favorite food</p>
       <div id="food-pick" class="foods"></div>
-      <button id="btn-ready" class="primary">Join room (host: opens lobby)</button>
+      <button id="btn-ready" class="primary">Start</button>
       <ul id="player-list"></ul>
       <button id="btn-start" class="primary hidden">Start game (host)</button>
       <p id="lobby-hint" class="hint"></p>
