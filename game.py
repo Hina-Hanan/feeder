@@ -345,12 +345,20 @@ def check_win(g, runner):
 
 MULTI_COLORS = [(250, 200, 150), (240, 170, 120), (160, 200, 240), (200, 240, 160)]
 
+def bot_head(name: str):
+    path = os.path.join("assets", "faces", f"{name.lower()}.png")
+    if os.path.exists(path):
+        return load_head(path, crop=False)
+    slot = {"Mimi": 1, "Bobo": 2, "Zed": 3}.get(name, 1)
+    return placeholder_head(MULTI_COLORS[slot])
+
+
 def new_bot_game(player_head, player_fav):
     others = [f for f in FOODS if f != player_fav]
     random.shuffle(others)
     runners = [Runner("You", player_head, player_fav, True, slot=0)]
     for i, n in enumerate(["Mimi", "Bobo", "Zed"]):
-        runners.append(Runner(n, placeholder_head(MULTI_COLORS[i + 1]), others[i], slot=i + 1))
+        runners.append(Runner(n, bot_head(n), others[i], slot=i + 1))
     init_all_meals(runners)
     return {"runners": runners, "fx": [], "winner": None, "bubble": None, "use_bots": True,
             "burst_flash": 0, "burst_ring": 0, "burst_pos": None}
