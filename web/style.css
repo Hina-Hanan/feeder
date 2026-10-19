@@ -70,6 +70,7 @@ input {
 }
 .face-block { margin: 12px 0 16px; }
 .face-label { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.face-upload-hint { margin: 0 0 8px; font-size: 13px; }
 .face-row { display: flex; gap: 16px; align-items: center; }
 #face-preview-wrap {
   width: 88px;

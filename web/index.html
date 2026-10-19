@@ -31,6 +31,7 @@
       <label>Name <input id="player-name" value="Player" maxlength="16" /></label>
       <div class="face-block">
         <p class="face-label">Your face photo</p>
+        <p class="hint face-upload-hint">Plain black or white background works best. If WhatsApp adds a white box, try “Save image” and upload that file, or send the original photo file.</p>
         <div class="face-row">
           <div id="face-preview-wrap">
             <img id="face-preview" alt="Your face" class="hidden" />
@@ -39,7 +40,7 @@
           <div class="face-actions">
             <label class="file-btn">
               Upload image
-              <input type="file" id="face-file" accept="image/png,image/jpeg,image/webp" hidden />
+              <input type="file" id="face-file" accept="image/png,image/jpeg,image/webp,image/jpg" hidden />
             </label>
             <button type="button" id="face-clear">Default face</button>
           </div>

@@ -195,27 +195,33 @@ function updateFacePreview() {
   }
 }
 
-/** Remove black backdrop (edge flood-fill), keep face/hair shape as-is */
-function removeBlackBackground(ctx, w, h) {
+/** Remove backdrop connected to image edges (black studio bg or white from WhatsApp/JPEG). */
+function removeEdgeBackground(ctx, w, h) {
   const img = ctx.getImageData(0, 0, w, h);
   const d = img.data;
   const bg = new Uint8Array(w * h);
   const q = [];
 
-  const isBlack = (i) => {
+  const isBackground = (i) => {
     const r = d[i];
     const g = d[i + 1];
     const b = d[i + 2];
     const a = d[i + 3];
-    if (a < 8) return true;
-    return r <= 42 && g <= 42 && b <= 42;
+    if (a < 10) return true;
+    if (r <= 45 && g <= 45 && b <= 45) return true;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const spread = max - min;
+    if (min >= 212 && spread <= 40) return true;
+    if (min >= 198 && spread <= 22) return true;
+    return false;
   };
 
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     const p = y * w + x;
     if (bg[p]) return;
-    if (!isBlack(p * 4)) return;
+    if (!isBackground(p * 4)) return;
     bg[p] = 1;
     q.push(p);
   };
@@ -253,7 +259,7 @@ function processFaceBitmap(bmp) {
   const dw = bmp.width * scale;
   const dh = bmp.height * scale;
   g.drawImage(bmp, (work - dw) / 2, (work - dh) / 2, dw, dh);
-  removeBlackBackground(g, work, work);
+  removeEdgeBackground(g, work, work);
   const trimmed = trimTransparent(c);
   return trimmed.toDataURL("image/png");
 }
