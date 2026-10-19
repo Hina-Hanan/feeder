@@ -22,7 +22,8 @@ let hostConn = null;
 let socket = null;
 let netMode = null; // "ws" | "peer"
 let tickTimer = null;
-let faceDataUrl = null;
+const DEFAULT_FACE_URL = "/assets/faces/head.png";
+let faceDataUrl = DEFAULT_FACE_URL;
 const faceCache = new Map(); // slot -> HTMLImageElement
 const faceCacheSrc = new Map(); // slot -> data url
 
@@ -119,6 +120,7 @@ function enterBotLobby() {
   botMode = true;
   room = "";
   mySlot = null;
+  if (!faceDataUrl || faceDataUrl === "null") faceDataUrl = DEFAULT_FACE_URL;
   history.replaceState(null, "", location.pathname);
   setupLobby();
 }
@@ -302,33 +304,17 @@ async function loadFaceFromFile(file) {
   updateFacePreview();
 }
 
+/** Pre-cut PNGs in assets/faces — use as-is (no background removal). */
 const BOT_FACE_PATHS = {
   Mimi: "/assets/faces/mimi.png",
   Bobo: "/assets/faces/bobo.png",
   Zed: "/assets/faces/zed.png",
 };
-const botFaceDataUrls = {};
 
-async function loadBotFace(name) {
-  if (botFaceDataUrls[name]) return botFaceDataUrls[name];
-  const url = BOT_FACE_PATHS[name];
-  if (!url) return null;
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = url;
-  });
-  const bmp = await createImageBitmap(img);
-  botFaceDataUrls[name] = processFaceBitmap(bmp);
-  return botFaceDataUrls[name];
-}
-
-function preloadBotFaces() {
-  Object.keys(BOT_FACE_PATHS).forEach((n) => {
-    loadBotFace(n).catch(() => {});
-  });
+function useDefaultFace() {
+  faceDataUrl = DEFAULT_FACE_URL;
+  $("face-file").value = "";
+  updateFacePreview();
 }
 
 const INK = "#141414";
@@ -688,8 +674,7 @@ function startGuestPeer(name, fav) {
   });
 }
 
-async function startBotGame(name, fav) {
-  setLobbyStatus("Loading bot faces…");
+function startBotGame(name, fav) {
   destroyNet();
   hostSim = new Sim.Room();
   mySlot = 0;
@@ -703,9 +688,7 @@ async function startBotGame(name, fav) {
   const botNames = ["Mimi", "Bobo", "Zed"];
   for (let i = 0; i < botNames.length; i++) {
     const botName = botNames[i];
-    let face = null;
-    try { face = await loadBotFace(botName); } catch (_) {}
-    const p = hostSim.addPlayer(botName, others[i], face);
+    const p = hostSim.addPlayer(botName, others[i], BOT_FACE_PATHS[botName] || null);
     if (p) {
       p.isBot = true;
       p.speed = Sim.rollBotSpeed();
@@ -813,11 +796,7 @@ $("face-file").onchange = (e) => {
   const f = e.target.files?.[0];
   if (f) loadFaceFromFile(f);
 };
-$("face-clear").onclick = () => {
-  faceDataUrl = null;
-  $("face-file").value = "";
-  updateFacePreview();
-};
+$("face-clear").onclick = useDefaultFace;
 
 const canvas = $("game");
 const ctx = canvas.getContext("2d");
@@ -832,7 +811,7 @@ function loadImages() {
   });
 }
 loadImages();
-preloadBotFaces();
+updateFacePreview();
 
 function drawRunner(r) {
   if (r.burst) return;
