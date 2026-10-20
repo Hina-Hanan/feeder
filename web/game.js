@@ -22,8 +22,11 @@ let hostConn = null;
 let socket = null;
 let netMode = null; // "ws" | "peer"
 let tickTimer = null;
-const DEFAULT_FACE_URL = "/assets/faces/head.png";
-let faceDataUrl = DEFAULT_FACE_URL;
+const DEFAULT_FACES = [
+  { url: "/assets/faces/head.png", label: "Default 1" },
+  { url: "/assets/faces/head2.png", label: "Default 2" },
+];
+let faceDataUrl = DEFAULT_FACES[0].url;
 const faceCache = new Map(); // slot -> HTMLImageElement
 const faceCacheSrc = new Map(); // slot -> data url
 
@@ -120,7 +123,7 @@ function enterBotLobby() {
   botMode = true;
   room = "";
   mySlot = null;
-  if (!faceDataUrl || faceDataUrl === "null") faceDataUrl = DEFAULT_FACE_URL;
+  if (!faceDataUrl || faceDataUrl === "null") faceDataUrl = DEFAULT_FACES[0].url;
   history.replaceState(null, "", location.pathname);
   setupLobby();
 }
@@ -316,6 +319,7 @@ async function loadFaceFromFile(file) {
   if (!file || !file.type.startsWith("image/")) return;
   const bmp = await createImageBitmap(file);
   faceDataUrl = processFaceBitmap(bmp);
+  buildDefaultFacePicker();
   updateFacePreview();
 }
 
@@ -326,10 +330,31 @@ const BOT_FACE_PATHS = {
   Hadi: "/assets/faces/hadi.png",
 };
 
-function useDefaultFace() {
-  faceDataUrl = DEFAULT_FACE_URL;
-  $("face-file").value = "";
-  updateFacePreview();
+function isPackagedDefaultFace(url) {
+  return DEFAULT_FACES.some((f) => f.url === url);
+}
+
+function buildDefaultFacePicker() {
+  const row = $("default-faces");
+  if (!row) return;
+  row.innerHTML = "";
+  DEFAULT_FACES.forEach((f) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "default-face-btn" + (faceDataUrl === f.url ? " selected" : "");
+    b.title = f.label;
+    const img = document.createElement("img");
+    img.src = f.url;
+    img.alt = f.label;
+    b.appendChild(img);
+    b.onclick = () => {
+      faceDataUrl = f.url;
+      $("face-file").value = "";
+      buildDefaultFacePicker();
+      updateFacePreview();
+    };
+    row.appendChild(b);
+  });
 }
 
 const INK = "#141414";
@@ -416,6 +441,7 @@ function setupLobby() {
   }
   updateReadyButton();
   updateFacePreview();
+  buildDefaultFacePicker();
   buildFoodPick();
 }
 
@@ -815,7 +841,6 @@ $("face-file").onchange = (e) => {
   const f = e.target.files?.[0];
   if (f) loadFaceFromFile(f);
 };
-$("face-clear").onclick = useDefaultFace;
 
 const canvas = $("game");
 const ctx = canvas.getContext("2d");
@@ -831,6 +856,7 @@ function loadImages() {
 }
 loadImages();
 updateFacePreview();
+buildDefaultFacePicker();
 
 function drawRunner(r) {
   if (r.burst) return;

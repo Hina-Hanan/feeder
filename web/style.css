@@ -107,6 +107,24 @@ body.embedded #screen-game {
   color: #555;
 }
 .face-actions { display: flex; flex-direction: column; gap: 8px; }
+.default-faces { display: flex; gap: 8px; margin-bottom: 4px; }
+.default-face-btn {
+  width: 56px;
+  height: 56px;
+  padding: 2px;
+  background: #fff;
+  border: 2px solid #888;
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.default-face-btn.selected { outline: 3px solid #2a6a2a; border-color: #2a6a2a; }
+.default-face-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
 .file-btn {
   display: inline-block;
   padding: 10px 14px;

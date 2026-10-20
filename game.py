@@ -479,8 +479,18 @@ net = None
 local_slot = 0
 join_ip = "127.0.0.1"
 player_name = "You"
-default_path = "assets/faces/head.png"
-player_head = load_head(default_path, crop=False) if os.path.exists(default_path) else placeholder_head((250, 200, 150))
+DEFAULT_HEAD_PATHS = ["assets/faces/head.png", "assets/faces/head2.png"]
+default_head_index = 0
+
+
+def load_default_player_head():
+    path = DEFAULT_HEAD_PATHS[default_head_index]
+    if os.path.exists(path):
+        return load_head(path, crop=False)
+    return placeholder_head((250, 200, 150))
+
+
+player_head = load_default_player_head()
 fav_choice = 0
 g = None
 status_msg = ""
@@ -493,6 +503,7 @@ MODE_MULTI = pygame.Rect(W // 2 - 220, 360, 440, 56)
 MULTI_HOST = pygame.Rect(W // 2 - 220, 300, 440, 56)
 MULTI_JOIN = pygame.Rect(W // 2 - 220, 380, 440, 56)
 MENU_CONTINUE = pygame.Rect(W // 2 - 180, 500, 360, 52)
+FACE_PICK = [pygame.Rect(40 + i * 95, 330, 80, 80) for i in range(len(DEFAULT_HEAD_PATHS))]
 
 def continue_from_menu():
     global g, net, state, local_slot, status_msg
@@ -579,6 +590,12 @@ while running:
                 if p:
                     player_head = load_head(p, crop=True)
             elif e.type == pygame.MOUSEBUTTONDOWN:
+                for i, fr in enumerate(FACE_PICK):
+                    if fr.collidepoint(e.pos) and i < len(DEFAULT_HEAD_PATHS):
+                        default_head_index = i
+                        HEAD_CACHE.clear()
+                        player_head = load_default_player_head()
+                        break
                 for i in range(len(FOODS)):
                     if menu_food_rect(i).collidepoint(e.pos):
                         fav_choice = i
@@ -673,11 +690,19 @@ while running:
             screen.blit(font.render("Pick your face & favorite food, then open the lobby",
                                     True, (30, 30, 30)), (300, 170))
         else:
-            screen.blit(font.render("U = upload face   |   click favorite food",
-                                    True, (30, 30, 30)), (350, 170))
+            screen.blit(font.render("Pick a default face, U = upload, click favorite food",
+                                    True, (30, 30, 30)), (310, 170))
         screen.blit(font.render("Everyone has their own favorite — first to 5 wins!",
                                 True, (30, 30, 30)), (280, 210))
-        screen.blit(scaled_head(player_head, "menu", 150), (40, 330))
+        for i, path in enumerate(DEFAULT_HEAD_PATHS):
+            if not os.path.exists(path):
+                continue
+            thumb = scaled_head(load_head(path, crop=False), f"pick{i}", 72)
+            r = FACE_PICK[i]
+            if i == default_head_index:
+                pygame.draw.rect(screen, (40, 100, 40), r.inflate(8, 8), border_radius=10, width=3)
+            screen.blit(thumb, thumb.get_rect(center=r.center))
+        screen.blit(scaled_head(player_head, "menu", 150), (250, 330))
         for i, n in enumerate(FOODS):
             r = menu_food_rect(i)
             if i == fav_choice:
