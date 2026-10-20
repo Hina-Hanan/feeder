@@ -3,6 +3,9 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build-public.js",
+    "build:server": "FTF_WS_SAME_ORIGIN=1 node scripts/build-public.js",
+    "build:uno-q": "FTF_WS_SAME_ORIGIN=1 FTF_EMBEDDED=1 node scripts/build-public.js",
+    "server": "python3 web_server.py",
     "dev": "npx serve public -p 8080"
   }
 }

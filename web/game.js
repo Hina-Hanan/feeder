@@ -135,6 +135,21 @@ function updateReadyButton() {
   }
 }
 
+let peerJsLoad = null;
+function ensurePeerJS() {
+  if (typeof Peer !== "undefined") return Promise.resolve();
+  if (peerJsLoad) return peerJsLoad;
+  peerJsLoad = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("PeerJS failed to load"));
+    document.head.appendChild(s);
+  });
+  return peerJsLoad;
+}
+
 const PEER_OPTS = {
   host: "0.peerjs.com",
   port: 443,
@@ -720,8 +735,12 @@ function joinRoom() {
     startWebSocketJoin(name, selectedFav);
     return;
   }
-  if (amHost) startHostPeer(name, selectedFav);
-  else startGuestPeer(name, selectedFav);
+  ensurePeerJS()
+    .then(() => {
+      if (amHost) startHostPeer(name, selectedFav);
+      else startGuestPeer(name, selectedFav);
+    })
+    .catch(() => setLobbyStatus("Could not load multiplayer library."));
 }
 
 function startGame() {
@@ -936,6 +955,11 @@ function loop(t) {
     WinFX.reset();
   }
   requestAnimationFrame(loop);
+}
+
+if (window.FTF_EMBEDDED) {
+  document.body.classList.add("embedded");
+  document.querySelector(".multi-block")?.classList.add("hidden");
 }
 
 room = roomFromUrl();

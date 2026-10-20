@@ -1,0 +1,2 @@
+# Optional: smaller images for npm run build:uno-q
+Pillow>=10.0.0

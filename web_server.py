@@ -325,7 +325,7 @@ def main():
 
         return handler
 
-    for name in ("game.js", "sim.js", "style.css", "winfx.js", "ws-config.js"):
+    for name in ("game.js", "sim.js", "style.css", "winfx.js", "ws-config.js", "embedded-config.js"):
         p = WEB / name
         if p.is_file():
             app.router.add_get(f"/{name}", static_file(p))

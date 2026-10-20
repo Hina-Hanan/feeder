@@ -68,6 +68,14 @@ input {
   border-radius: 8px;
   background: #5a4030;
 }
+body.embedded #game {
+  image-rendering: auto;
+  max-height: calc(100vh - 120px);
+}
+body.embedded #screen-game {
+  max-width: min(100%, 1280px);
+  margin: 0 auto;
+}
 .face-block { margin: 12px 0 16px; }
 .face-label { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
 .face-upload-hint { margin: 0 0 8px; font-size: 13px; }

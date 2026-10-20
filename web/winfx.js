@@ -15,14 +15,19 @@ const WinFX = (() => {
     firedFor = null;
   }
 
+  function fxScale() {
+    return (typeof window !== "undefined" && window.FTF_EMBEDDED) ? 0.5 : 1;
+  }
+
   function spawn(winnerSlot, x, y) {
     if (firedFor === winnerSlot) return;
     firedFor = winnerSlot;
     origin = { x, y };
     burstFlash = 0.45;
     burstRing = 0;
+    const k = fxScale();
 
-    for (let i = 0; i < 55; i++) {
+    for (let i = 0; i < Math.max(20, Math.floor(55 * k)); i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 100 + Math.random() * 380;
       particles.push({
@@ -34,7 +39,7 @@ const WinFX = (() => {
         r: 6 + Math.random() * 22,
       });
     }
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < Math.max(30, Math.floor(80 * k)); i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 200 + Math.random() * 550;
       particles.push({
@@ -46,7 +51,7 @@ const WinFX = (() => {
         r: 2 + Math.random() * 4,
       });
     }
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < Math.max(50, Math.floor(140 * k)); i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 120 + Math.random() * 420;
       particles.push({
@@ -62,9 +67,11 @@ const WinFX = (() => {
         color: POP_COLORS[i % POP_COLORS.length],
       });
     }
-    for (let b = 0; b < 8; b++) {
+    const poppers = Math.max(4, Math.floor(8 * k));
+    const streamers = Math.max(8, Math.floor(18 * k));
+    for (let b = 0; b < poppers; b++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
-      for (let j = 0; j < 18; j++) {
+      for (let j = 0; j < streamers; j++) {
         const spread = (Math.random() - 0.5) * 0.7;
         const sp = 280 + Math.random() * 320;
         particles.push({
