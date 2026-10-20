@@ -306,9 +306,9 @@ async function loadFaceFromFile(file) {
 
 /** Pre-cut PNGs in assets/faces — use as-is (no background removal). */
 const BOT_FACE_PATHS = {
-  Mimi: "/assets/faces/mimi.png",
-  Bobo: "/assets/faces/bobo.png",
-  Zed: "/assets/faces/zed.png",
+  Trisha: "/assets/faces/trisha.png",
+  Jasil: "/assets/faces/jasil.png",
+  Hadi: "/assets/faces/hadi.png",
 };
 
 function useDefaultFace() {
@@ -380,7 +380,7 @@ function setupLobby() {
     $("lobby-title").textContent = "Play vs Bots";
     $("lobby-code").textContent = "";
     setLobbyStatus("Pick your name, face, and favorite food.");
-    $("lobby-hint").textContent = "You vs Mimi, Bobo, and Zed — race to 5.";
+    $("lobby-hint").textContent = "You vs Trisha, Jasil, and Hadi — race to 5.";
     updateReadyButton();
     updateFacePreview();
     buildFoodPick();
@@ -685,7 +685,7 @@ function startBotGame(name, fav) {
     const j = Math.floor(Math.random() * (i + 1));
     [others[i], others[j]] = [others[j], others[i]];
   }
-  const botNames = ["Mimi", "Bobo", "Zed"];
+  const botNames = ["Trisha", "Jasil", "Hadi"];
   for (let i = 0; i < botNames.length; i++) {
     const botName = botNames[i];
     const p = hostSim.addPlayer(botName, others[i], BOT_FACE_PATHS[botName] || null);
