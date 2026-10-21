@@ -61,6 +61,37 @@ input {
 .multi-block summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
 .multi-block .hint { margin-top: 0; }
 #screen-game { max-width: 100%; }
+#game-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.game-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 24px;
+}
+.game-over-msg {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffdd55;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+.game-over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
 #game {
   max-width: 100%;
   height: auto;

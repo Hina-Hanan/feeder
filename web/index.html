@@ -56,7 +56,16 @@
     </section>
 
     <section id="screen-game" class="hidden">
-      <canvas id="game" width="1152" height="648"></canvas>
+      <div id="game-wrap">
+        <canvas id="game" width="1152" height="648"></canvas>
+        <div id="game-over" class="game-over hidden">
+          <p id="game-over-msg" class="game-over-msg"></p>
+          <div class="game-over-actions">
+            <button type="button" id="btn-play-again" class="primary">Play again</button>
+            <button type="button" id="btn-main-menu">Main menu</button>
+          </div>
+        </div>
+      </div>
       <p class="hint">WASD or arrow keys — walk onto your white spot to eat</p>
     </section>
   </div>

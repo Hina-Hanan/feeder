@@ -716,6 +716,7 @@ function startGuestPeer(name, fav) {
 }
 
 function startBotGame(name, fav) {
+  hideGameOverOverlay();
   destroyNet();
   hostSim = new Sim.Room();
   mySlot = 0;
@@ -828,6 +829,8 @@ document.addEventListener("keyup", (e) => {
 });
 setInterval(sendInput, 50);
 
+$("btn-play-again").onclick = playAgain;
+$("btn-main-menu").onclick = goMainMenu;
 $("btn-play-bots").onclick = enterBotLobby;
 $("btn-create").onclick = createRoom;
 $("btn-copy").onclick = () => {
@@ -944,6 +947,102 @@ function runnerHeadXY(r) {
 }
 
 let loopT = 0;
+let gameOverShown = false;
+
+function hideGameOverOverlay() {
+  $("game-over").classList.add("hidden");
+  gameOverShown = false;
+}
+
+function showGameOverOverlay(winnerName) {
+  if (gameOverShown) return;
+  gameOverShown = true;
+  $("game-over-msg").textContent = `${winnerName || "Someone"} wins!`;
+  const again = $("btn-play-again");
+  if (botMode || (amHost && hostSim && netMode !== "ws")) {
+    again.classList.remove("hidden");
+  } else {
+    again.classList.add("hidden");
+  }
+  $("game-over").classList.remove("hidden");
+}
+
+function stopGameTick() {
+  if (tickTimer) {
+    clearInterval(tickTimer);
+    tickTimer = null;
+  }
+  keys.up = keys.down = keys.left = keys.right = false;
+}
+
+function goMainMenu() {
+  stopGameTick();
+  hideGameOverOverlay();
+  destroyNet();
+  state = null;
+  hostSim = null;
+  mySlot = null;
+  netMode = null;
+  WinFX.reset();
+  show("screen-home");
+}
+
+function restartHostGame() {
+  if (!hostSim || !amHost) return;
+  const saved = hostSim.players.map((p) => ({
+    name: p.name,
+    fav: p.fav,
+    face: p.face,
+    isBot: !!p.isBot,
+    speed: p.speed,
+  }));
+  stopGameTick();
+  hideGameOverOverlay();
+  hostSim = new Sim.Room();
+  saved.forEach((p) => {
+    const pl = hostSim.addPlayer(p.name, p.fav, p.face);
+    if (pl && p.isBot) {
+      pl.isBot = true;
+      pl.speed = p.speed || Sim.rollBotSpeed();
+    }
+  });
+  if (amHost) mySlot = 0;
+  hostSim.start();
+  state = hostSim.publicState();
+  syncRunnerFaces(state.runners);
+  WinFX.reset();
+  loopT = 0;
+  if (netMode === "local") {
+    tickTimer = setInterval(() => {
+      hostSim.step(1 / 30);
+      state = hostSim.publicState();
+      syncRunnerFaces(state.runners);
+    }, 1000 / 30);
+  } else {
+    tickTimer = setInterval(() => {
+      hostSim.step(1 / 30);
+      state = hostSim.publicState();
+      syncRunnerFaces(state.runners);
+      broadcast({ type: "state", state });
+    }, 1000 / 30);
+    broadcast({ type: "start", state });
+  }
+}
+
+function playAgain() {
+  const name = $("player-name").value.trim() || "Player";
+  if (botMode) {
+    hideGameOverOverlay();
+    startBotGame(name, selectedFav);
+    return;
+  }
+  if (amHost && hostSim && netMode !== "ws") {
+    restartHostGame();
+    return;
+  }
+  goMainMenu();
+}
+
 function loop(t) {
   if (!state?.runners) {
     requestAnimationFrame(loop);
@@ -964,6 +1063,7 @@ function loop(t) {
     if (w) {
       const hp = runnerHeadXY(w);
       WinFX.spawn(state.winner_slot, hp.x, hp.y);
+      showGameOverOverlay(w.name);
     }
     WinFX.update(dt);
     WinFX.draw(ctx);
@@ -975,10 +1075,11 @@ function loop(t) {
     ctx.strokeStyle = "#8b2020";
     ctx.lineWidth = 4;
     const msg = `${w?.name || "Someone"} wins!`;
-    ctx.strokeText(msg, W / 2, H / 2);
-    ctx.fillText(msg, W / 2, H / 2);
+    ctx.strokeText(msg, W / 2, H / 2 - 40);
+    ctx.fillText(msg, W / 2, H / 2 - 40);
   } else {
     WinFX.reset();
+    if (gameOverShown) hideGameOverOverlay();
   }
   requestAnimationFrame(loop);
 }
